@@ -34,7 +34,7 @@ pipeline {
     stage('Tag & Push Image') {
       steps {
         script {
-          env.TARGET_ECR = (env.BRANCH_NAME == "master") ? env.ECR_PROD : env.ECR_DEV
+          env.TARGET_ECR = (env.BRANCH_NAME == "main") ? env.ECR_PROD : env.ECR_DEV
           sh """
             docker tag myapp:${IMAGE_TAG} ${env.TARGET_ECR}:${IMAGE_TAG}
             docker push ${env.TARGET_ECR}:${IMAGE_TAG}
@@ -45,9 +45,14 @@ pipeline {
 
     stage('Prepare EC2') {
       steps {
-        sshagent([SSH_KEY]) {
+        withCredentials([sshUserPrivateKey(
+          credentialsId: 'ec2-ssh-key',
+          keyFileVariable: 'SSH_KEY_FILE'
+        )]) {
           sh """
-            ssh -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_HOST} \
+            ssh -o StrictHostKeyChecking=no \
+              -i ${SSH_KEY_FILE} \
+              ${REMOTE_USER}@${REMOTE_HOST} \
               "mkdir -p ${APP_DIR} && chmod 777 ${APP_DIR}"
           """
         }
@@ -56,9 +61,13 @@ pipeline {
 
     stage('Transfer Files') {
       steps {
-        sshagent([SSH_KEY]) {
+        withCredentials([sshUserPrivateKey(
+          credentialsId: 'ec2-ssh-key',
+          keyFileVariable: 'SSH_KEY_FILE'
+        )]) {
           sh """
             scp -o StrictHostKeyChecking=no \
+              -i ${SSH_KEY_FILE} \
               docker-compose.yml \
               ${REMOTE_USER}@${REMOTE_HOST}:${APP_DIR}/
           """
@@ -68,9 +77,14 @@ pipeline {
 
     stage('Deploy on EC2') {
       steps {
-        sshagent([SSH_KEY]) {
+        withCredentials([sshUserPrivateKey(
+          credentialsId: 'ec2-ssh-key',
+          keyFileVariable: 'SSH_KEY_FILE'
+        )]) {
           sh """
-            ssh -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_HOST} \
+            ssh -o StrictHostKeyChecking=no \
+              -i ${SSH_KEY_FILE} \
+              ${REMOTE_USER}@${REMOTE_HOST} \
               "cd ${APP_DIR} && \
                docker-compose down && \
                docker-compose pull && \
