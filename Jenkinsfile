@@ -82,10 +82,6 @@ pipeline {
           keyFileVariable: 'SSH_KEY_FILE'
         )]) {
           sh """
-            # Fix Docker permissions on EC2 first (only needed once)
-            ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} ${REMOTE_USER}@${REMOTE_HOST} \
-              "sudo usermod -aG docker ${REMOTE_USER} && newgrp docker"
-
             # Deploy with environment variables
             ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} ${REMOTE_USER}@${REMOTE_HOST} \
               "cd ${APP_DIR} && \
