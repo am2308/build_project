@@ -8,11 +8,10 @@ pipeline {
     IMAGE_TAG = "${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
     REMOTE_HOST = '13.235.254.233'
     REMOTE_USER = 'ubuntu'
-    SSH_KEY = credentials('ec2-ssh-key')  // SSH key added in Jenkins
+    SSH_KEY = credentials('ec2-ssh-key')
   }
 
   stages {
-
     stage('Checkout') {
       steps {
         git branch: "${env.BRANCH_NAME}", url: 'https://github.com/am2308/build_project.git'
@@ -50,16 +49,14 @@ pipeline {
     stage('Deploy on EC2') {
       steps {
         script {
-          def deployScript = """
-            ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${REMOTE_USER}@${REMOTE_HOST} << 'EOF'
-            export IMAGE_TAG=${IMAGE_TAG}
-            export ECR_URL=$((BRANCH_NAME == "master") ? "$ECR_PROD" : "$ECR_DEV")
-            aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin $ECR_URL
-            cd /home/ec2-user/app && docker-compose pull
-EOF
+          def ecrUrl = (env.BRANCH_NAME == "master") ? env.ECR_PROD : env.ECR_DEV
+          sh """
+            ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${REMOTE_USER}@${REMOTE_HOST} '
+              aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ecrUrl}
+              cd /home/ec2-user/app && docker-compose pull
+              docker-compose up -d
+            '
           """
-
-          sh deployScript
         }
       }
     }
@@ -67,7 +64,7 @@ EOF
 
   post {
     success {
-      echo "✅ Deployment successful for ${BRANCH_NAME} to ${REMOTE_HOST}"
+      echo "✅ Deployment successful for ${env.BRANCH_NAME} to ${REMOTE_HOST}"
     }
     failure {
       echo "❌ Deployment failed. Check logs."
