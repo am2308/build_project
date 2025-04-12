@@ -1,7 +1,7 @@
 version: '3.8'
 services:
   app:
-    image: ${ECR_DEV}:${IMAGE_TAG}  # Will be replaced during deployment
+    image: ${ECR_REPO}:${IMAGE_TAG}  # Will be replaced during deployment
     ports:
       - "8085:80"
     restart: unless-stopped
