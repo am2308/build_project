@@ -53,7 +53,8 @@ pipeline {
           sh """
             ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${REMOTE_USER}@${REMOTE_HOST} '
               aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ecrUrl}
-              docker-compose pull
+              docker pull ${targetEcr}:${IMAGE_TAG}
+              docker run -d --name myapp -p 8085:80 ${targetEcr}:${IMAGE_TAG}
             '
           """
         }
