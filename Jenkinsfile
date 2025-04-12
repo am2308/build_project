@@ -37,7 +37,7 @@ pipeline {
     stage('Tag & Push Image') {
       steps {
         script {
-          def targetEcr = (env.BRANCH_NAME == "master") ? env.ECR_PROD : env.ECR_DEV
+          def targetEcr = (env.BRANCH_NAME == "main") ? env.ECR_PROD : env.ECR_DEV
           sh """
             docker tag myapp:${IMAGE_TAG} ${targetEcr}:${IMAGE_TAG}
             docker push ${targetEcr}:${IMAGE_TAG}
@@ -53,8 +53,7 @@ pipeline {
           sh """
             ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${REMOTE_USER}@${REMOTE_HOST} '
               aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ecrUrl}
-              cd /home/ec2-user/app && docker-compose pull
-              docker-compose up -d
+              docker-compose pull
             '
           """
         }
