@@ -27,7 +27,13 @@ pipeline {
 
     stage('Login to ECR') {
       steps {
-        sh 'aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_DEV'
+        script {
+          env.TARGET_ECR = (env.BRANCH_NAME == "main") ? env.ECR_PROD : env.ECR_DEV
+          sh """
+            aws ecr get-login-password --region ${AWS_REGION} | \
+            docker login --username AWS --password-stdin ${TARGET_ECR}
+          """
+        }
       }
     }
 
@@ -85,8 +91,10 @@ pipeline {
             # Deploy with environment variables
             ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} ${REMOTE_USER}@${REMOTE_HOST} \
               "cd ${APP_DIR} && \
-               export ECR_DEV=${ECR_DEV} && \
+               export ECR_REPO=${TARGET_ECR} && \
                export IMAGE_TAG=${IMAGE_TAG} && \
+               aws ecr get-login-password --region ${AWS_REGION} | \
+               docker login --username AWS --password-stdin ${TARGET_ECR} && \
                docker-compose down && \
                docker-compose pull && \
                docker-compose up -d"
