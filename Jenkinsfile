@@ -9,6 +9,7 @@ pipeline {
     REMOTE_HOST = '13.235.254.233'
     REMOTE_USER = 'ubuntu'
     SSH_KEY = credentials('ec2-ssh-key')
+    APP_DIR = '/home/ubuntu/app'  // Remote directory on EC2
   }
 
   stages {
@@ -20,27 +21,46 @@ pipeline {
 
     stage('Build Docker Image') {
       steps {
-        sh '''
-          docker build -t myapp:${IMAGE_TAG} .
-        '''
+        sh 'docker build -t myapp:${IMAGE_TAG} .'
       }
     }
 
     stage('Login to ECR') {
       steps {
-        sh '''
-          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_DEV
-        '''
+        sh 'aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_DEV'
       }
     }
 
     stage('Tag & Push Image') {
       steps {
         script {
-          def targetEcr = (env.BRANCH_NAME == "main") ? env.ECR_PROD : env.ECR_DEV
+          env.TARGET_ECR = (env.BRANCH_NAME == "master") ? env.ECR_PROD : env.ECR_DEV
           sh """
-            docker tag myapp:${IMAGE_TAG} ${targetEcr}:${IMAGE_TAG}
-            docker push ${targetEcr}:${IMAGE_TAG}
+            docker tag myapp:${IMAGE_TAG} ${env.TARGET_ECR}:${IMAGE_TAG}
+            docker push ${env.TARGET_ECR}:${IMAGE_TAG}
+          """
+        }
+      }
+    }
+
+    stage('Prepare EC2') {
+      steps {
+        sshagent([SSH_KEY]) {
+          sh """
+            ssh -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_HOST} \
+              "mkdir -p ${APP_DIR} && chmod 777 ${APP_DIR}"
+          """
+        }
+      }
+    }
+
+    stage('Transfer Files') {
+      steps {
+        sshagent([SSH_KEY]) {
+          sh """
+            scp -o StrictHostKeyChecking=no \
+              docker-compose.yml \
+              ${REMOTE_USER}@${REMOTE_HOST}:${APP_DIR}/
           """
         }
       }
@@ -48,14 +68,13 @@ pipeline {
 
     stage('Deploy on EC2') {
       steps {
-        script {
-          def ecrUrl = (env.BRANCH_NAME == "main") ? env.ECR_PROD : env.ECR_DEV
+        sshagent([SSH_KEY]) {
           sh """
-            ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${REMOTE_USER}@${REMOTE_HOST} '
-              aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ecrUrl}
-              docker pull ${targetEcr}:${IMAGE_TAG}
-              docker run -d --name myapp -p 8085:80 ${targetEcr}:${IMAGE_TAG}
-            '
+            ssh -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_HOST} \
+              "cd ${APP_DIR} && \
+               docker-compose down && \
+               docker-compose pull && \
+               docker-compose up -d"
           """
         }
       }
@@ -64,7 +83,7 @@ pipeline {
 
   post {
     success {
-      echo "✅ Deployment successful for ${env.BRANCH_NAME} to ${REMOTE_HOST}"
+      echo "✅ Deployment successful! Access at: http://${REMOTE_HOST}"
     }
     failure {
       echo "❌ Deployment failed. Check logs."
