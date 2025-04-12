@@ -82,10 +82,15 @@ pipeline {
           keyFileVariable: 'SSH_KEY_FILE'
         )]) {
           sh """
-            ssh -o StrictHostKeyChecking=no \
-              -i ${SSH_KEY_FILE} \
-              ${REMOTE_USER}@${REMOTE_HOST} \
+            # Fix Docker permissions on EC2 first (only needed once)
+            ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} ${REMOTE_USER}@${REMOTE_HOST} \
+              "sudo usermod -aG docker ${REMOTE_USER} && newgrp docker"
+
+            # Deploy with environment variables
+            ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} ${REMOTE_USER}@${REMOTE_HOST} \
               "cd ${APP_DIR} && \
+               export ECR_DEV=${ECR_DEV} && \
+               export IMAGE_TAG=${IMAGE_TAG} && \
                docker-compose down && \
                docker-compose pull && \
                docker-compose up -d"
