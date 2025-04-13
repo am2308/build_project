@@ -10,7 +10,6 @@ pipeline {
     SSH_KEY = credentials('ec2-ssh-key')
     APP_DIR = '/home/ubuntu/app'  // Remote directory on EC2
   }
-
   stages {
     stage('Checkout') {
       steps {
