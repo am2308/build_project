@@ -1,6 +1,5 @@
 pipeline {
   agent any
-  
   environment {
     AWS_REGION = 'ap-south-1'
     ECR_DEV = '637423357784.dkr.ecr.ap-south-1.amazonaws.com/dev-repo'
