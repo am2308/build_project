@@ -5,7 +5,7 @@ pipeline {
     ECR_DEV = '637423357784.dkr.ecr.ap-south-1.amazonaws.com/dev-repo'
     ECR_PROD = '637423357784.dkr.ecr.ap-south-1.amazonaws.com/prod-repo'
     IMAGE_TAG = "${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
-    REMOTE_HOST = '13.232.167.172'
+    REMOTE_HOST = '13.235.128.85'
     REMOTE_USER = 'ubuntu'
     SSH_KEY = credentials('ec2-ssh-key')
     APP_DIR = '/home/ubuntu/app'  // Remote directory on EC2
