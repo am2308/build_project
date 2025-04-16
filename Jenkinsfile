@@ -8,10 +8,10 @@ pipeline {
     ECR_DEV = '637423357784.dkr.ecr.ap-south-1.amazonaws.com/dev-repo'
     ECR_PROD = '637423357784.dkr.ecr.ap-south-1.amazonaws.com/prod-repo'
     IMAGE_TAG = "${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
-    REMOTE_HOST = '65.2.171.246'
+    REMOTE_HOST = '13.201.39.52'
     REMOTE_USER = 'ubuntu'
     SSH_KEY = credentials('ec2-ssh-key')
-    APP_DIR = '/home/ubuntu/app'  // Remote directory on EC2
+    APP_DIR = '/home/ubuntu/app'
   }
   stages {
     stage('Checkout') {
@@ -20,31 +20,13 @@ pipeline {
       }
     }
 
-    stage('Build Docker Image') {
-      steps {
-        sh 'docker build -t myapp:${IMAGE_TAG} .'
-      }
-    }
-
-    stage('Login to ECR') {
+    stage('Build & Push Image') {
       steps {
         script {
           env.TARGET_ECR = (env.BRANCH_NAME == "main") ? env.ECR_PROD : env.ECR_DEV
           sh """
-            aws ecr get-login-password --region ${AWS_REGION} | \
-            docker login --username AWS --password-stdin ${TARGET_ECR}
-          """
-        }
-      }
-    }
-
-    stage('Tag & Push Image') {
-      steps {
-        script {
-          env.TARGET_ECR = (env.BRANCH_NAME == "main") ? env.ECR_PROD : env.ECR_DEV
-          sh """
-            docker tag myapp:${IMAGE_TAG} ${env.TARGET_ECR}:${IMAGE_TAG}
-            docker push ${env.TARGET_ECR}:${IMAGE_TAG}
+            chmod +x build.sh
+            ./build.sh
           """
         }
       }
@@ -75,7 +57,7 @@ pipeline {
           sh """
             scp -o StrictHostKeyChecking=no \
               -i ${SSH_KEY_FILE} \
-              docker-compose.yml \
+              docker-compose.yml deploy.sh \
               ${REMOTE_USER}@${REMOTE_HOST}:${APP_DIR}/
           """
         }
@@ -89,16 +71,14 @@ pipeline {
           keyFileVariable: 'SSH_KEY_FILE'
         )]) {
           sh """
-            # Deploy with environment variables
-            ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} ${REMOTE_USER}@${REMOTE_HOST} \
-              "cd ${APP_DIR} && \
-               export ECR_REPO=${TARGET_ECR} && \
-               export IMAGE_TAG=${IMAGE_TAG} && \
-               aws ecr get-login-password --region ${AWS_REGION} | \
-               docker login --username AWS --password-stdin ${TARGET_ECR} && \
-               docker-compose down && \
-               docker-compose pull && \
-               docker-compose up -d"
+            ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} ${REMOTE_USER}@${REMOTE_HOST} '
+              export ECR_REPO=${TARGET_ECR}
+              export IMAGE_TAG=${IMAGE_TAG}
+              export AWS_REGION=${AWS_REGION}
+              export APP_DIR=${APP_DIR}
+              chmod +x ${APP_DIR}/deploy.sh
+              ${APP_DIR}/deploy.sh
+            '
           """
         }
       }
