@@ -1,4 +1,4 @@
-# Use the official Nginx image
+# Use the official Nginx
 FROM nginx:alpine
 
 # Remove default nginx website
