@@ -8,7 +8,7 @@ pipeline {
     ECR_DEV = '637423357784.dkr.ecr.ap-south-1.amazonaws.com/dev-repo'
     ECR_PROD = '637423357784.dkr.ecr.ap-south-1.amazonaws.com/prod-repo'
     IMAGE_TAG = "${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
-    REMOTE_HOST = '13.201.39.52'
+    REMOTE_HOST = '13.233.227.189'
     REMOTE_USER = 'ubuntu'
     SSH_KEY = credentials('ec2-ssh-key')
     APP_DIR = '/home/ubuntu/app'
